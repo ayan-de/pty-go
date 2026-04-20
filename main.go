@@ -2,14 +2,12 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -17,8 +15,6 @@ import (
 	"github.com/creack/pty"
 	"golang.org/x/term"
 )
-
-const doneMarker = "P0MX_DONE_SIGNAL"
 
 type state int
 
@@ -28,53 +24,6 @@ const (
 	stateWorking
 	stateDone
 )
-
-type agent struct {
-	name            string
-	bin             string
-	readyPattern    string
-	sendPromptFn    func(ptmx *os.File, prompt string)
-	formatterFn     func(prompt string) string
-	idlePatterns    []string
-	gracePeriod     time.Duration
-	fallbackTimeout time.Duration
-	readyWait       time.Duration
-}
-
-var agents = map[string]agent{
-	"opencode": {
-		name:            "opencode",
-		bin:             "opencode",
-		readyPattern:    `Ask\s+anything`,
-		sendPromptFn:    sendPromptTyped,
-		gracePeriod:     8 * time.Second,
-		fallbackTimeout: 5 * time.Second,
-		readyWait:       800 * time.Millisecond,
-		formatterFn: func(prompt string) string {
-			return fmt.Sprintf(
-				"%s\n\nIMPORTANT: After you have fully completed all the above tasks, you MUST print exactly this line on its own: %s. Do not skip this.",
-				prompt, doneMarker,
-			)
-		},
-		idlePatterns: []string{`Ask\s+anything`},
-	},
-	"claudecode": {
-		name:            "claude-code",
-		bin:             "claude",
-		readyPattern:    `Press\s+Ctrl-C\s+again\s+to\s+exit`,
-		sendPromptFn:    sendPromptForClaude,
-		gracePeriod:     10 * time.Second,
-		fallbackTimeout: 10 * time.Second,
-		readyWait:       2 * time.Second,
-		formatterFn: func(prompt string) string {
-			return fmt.Sprintf(
-				"%s. IMPORTANT: After fully completing all tasks, print exactly this on its own line: %s",
-				prompt, doneMarker,
-			)
-		},
-		idlePatterns: []string{`Press\s+Ctrl-C\s+again\s+to\s+exit`},
-	},
-}
 
 func main() {
 	var chdir string
@@ -103,13 +52,14 @@ func main() {
 		agentName = "opencode"
 	}
 
-	ag, ok := agents[agentName]
+	registry := NewRegistry()
+	ag, ok := registry[agentName]
 	if !ok {
-		fmt.Fprintf(os.Stderr, "unknown agent: %s\n", agentName)
+		os.Stderr.WriteString("unknown agent: " + agentName + "\n")
 		os.Exit(1)
 	}
 
-	prompt := joinArgs(args)
+	prompt := JoinArgs(args)
 
 	if chdir != "" {
 		abs, err := filepath.Abs(chdir)
@@ -119,7 +69,7 @@ func main() {
 		chdir = abs
 	}
 
-	cmd := exec.Command(ag.bin)
+	cmd := exec.Command(ag.Bin)
 	cmd.Env = os.Environ()
 	if chdir != "" {
 		cmd.Dir = chdir
@@ -155,8 +105,6 @@ func main() {
 		close(cmdDone)
 	}()
 
-	// delay stdin forwarding until after prompt is sent to avoid
-	// spurious raw-mode bytes being interpreted as keypresses
 	stdinEnabled := make(chan struct{})
 	go func() {
 		<-stdinEnabled
@@ -170,17 +118,17 @@ func main() {
 	}
 
 	injectedPrompt := prompt
-	if autoExit && ag.formatterFn != nil {
-		injectedPrompt = ag.formatterFn(prompt)
+	if autoExit && ag.FormatPrompt != nil {
+		injectedPrompt = ag.FormatPrompt(prompt)
 	}
 
 	var outputBuf bytes.Buffer
 	tee := io.TeeReader(ptmx, os.Stdout)
 
-	readyMarker := regexp.MustCompile(ag.readyPattern)
+	readyMarker := regexp.MustCompile(ag.ReadyPattern)
 	doneMarkerRe := regexp.MustCompile(regexp.QuoteMeta(doneMarker))
-	idleRes := make([]*regexp.Regexp, len(ag.idlePatterns))
-	for i, p := range ag.idlePatterns {
+	idleRes := make([]*regexp.Regexp, len(ag.IdlePatterns))
+	for i, p := range ag.IdlePatterns {
 		idleRes[i] = regexp.MustCompile(p)
 	}
 
@@ -192,7 +140,7 @@ func main() {
 
 	exit := func() {
 		doneOnce.Do(func() {
-			fmt.Fprintf(os.Stderr, "\n[pty-go] task complete, closing %s...\n", ag.name)
+			os.Stderr.WriteString("\n[pty-go] task complete, closing " + ag.Name + "...\n")
 			time.Sleep(500 * time.Millisecond)
 			ptmx.Write([]byte{0x03})
 			time.Sleep(300 * time.Millisecond)
@@ -207,15 +155,15 @@ func main() {
 	transitionToWorking := func() {
 		outputBuf.Reset()
 		current = stateWorking
-		time.AfterFunc(ag.gracePeriod, func() {
+		time.AfterFunc(ag.GracePeriod, func() {
 			canCheckCompletion = true
 		})
 	}
 
-	fallback := time.AfterFunc(ag.fallbackTimeout, func() {
+	fallback := time.AfterFunc(ag.FallbackTimeout, func() {
 		if current == stateWaitingReady {
 			current = stateSendingPrompt
-			ag.sendPromptFn(ptmx, injectedPrompt)
+			ag.SendPrompt(ptmx, injectedPrompt)
 			if autoExit {
 				transitionToWorking()
 			} else {
@@ -241,12 +189,12 @@ func main() {
 
 		switch current {
 		case stateWaitingReady:
-			stripped := stripANSI(outputBuf.String())
+			stripped := StripANSI(outputBuf.String())
 			if readyMarker.MatchString(stripped) {
 				current = stateSendingPrompt
 				fallback.Stop()
-				time.AfterFunc(ag.readyWait, func() {
-					ag.sendPromptFn(ptmx, injectedPrompt)
+				time.AfterFunc(ag.ReadyWait, func() {
+					ag.SendPrompt(ptmx, injectedPrompt)
 					if autoExit {
 						transitionToWorking()
 					} else {
@@ -266,7 +214,7 @@ func main() {
 			if outputBuf.Len() > 16384 {
 				outputBuf.Next(outputBuf.Len() - 8192)
 			}
-			recent := stripANSI(outputBuf.String())
+			recent := StripANSI(outputBuf.String())
 
 			if doneMarkerRe.MatchString(recent) {
 				current = stateDone
@@ -285,48 +233,4 @@ func main() {
 		case stateDone:
 		}
 	}
-}
-
-func sendPromptTyped(ptmx *os.File, prompt string) {
-	ptmx.Write([]byte{0x15}) // Ctrl+U
-	time.Sleep(50 * time.Millisecond)
-	ptmx.Write([]byte{0x17}) // Ctrl+W
-	time.Sleep(50 * time.Millisecond)
-	ptmx.Write([]byte(prompt))
-	time.Sleep(100 * time.Millisecond)
-	ptmx.Write([]byte{0x0d}) // Enter
-}
-
-// sendPromptForClaude sends prompt to Claude Code.
-// No control characters — Claude Code's Ink TUI interprets them as interrupts.
-// No newlines — Claude Code submits on Enter.
-func sendPromptForClaude(ptmx *os.File, prompt string) {
-	singleLine := strings.ReplaceAll(prompt, "\n", " ")
-	singleLine = strings.ReplaceAll(singleLine, "\r", " ")
-
-	ptmx.Write([]byte(singleLine))
-	time.Sleep(300 * time.Millisecond)
-	ptmx.Write([]byte{0x0d}) // Enter
-}
-
-var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?\x07|\x1b\[.*?m`)
-
-func stripANSI(s string) string {
-	return ansiRe.ReplaceAllString(s, "")
-}
-
-func joinArgs(args []string) string {
-	var buf bytes.Buffer
-	for i, a := range args {
-		if i > 0 {
-			buf.WriteByte(' ')
-		}
-		buf.WriteString(a)
-	}
-	return buf.String()
-}
-
-func containsMarker(s string) bool {
-	clean := stripANSI(s)
-	return strings.Contains(clean, doneMarker)
 }
