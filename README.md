@@ -1,11 +1,11 @@
 # pty-go
 
-A Go CLI tool that launches coding agents (opencode, Claude Code) inside a pseudo-terminal (PTY) with support for auto-prompt injection and auto-exit on task completion.
+A Go CLI tool that launches coding agents (opencode, Claude Code, Codex) inside a pseudo-terminal (PTY) with support for auto-prompt injection and auto-exit on task completion.
 
 ## Prerequisites
 
 - [Go](https://go.dev/dl/) 1.26+
-- An installed coding agent (`opencode` or `claude`)
+- An installed coding agent (`opencode`, `claude`, or `codex`)
 
 ## Install
 
@@ -33,6 +33,7 @@ pty-go [flags] [prompt...]
 |------|-------------|
 | `-opencode` | Use opencode as the agent (default) |
 | `-claudecode` / `-claude` | Use Claude Code as the agent |
+| `-codex` | Use OpenAI Codex as the agent |
 | `-chdir <path>` | Set the working directory for the agent |
 | `-auto-exit` | Automatically exit when the agent finishes the task |
 
@@ -54,6 +55,12 @@ pty-go -auto-exit "Explain the main function in main.go"
 
 ```bash
 pty-go -claudecode -chdir ~/Projects/my-app -auto-exit "Fix the lint errors"
+```
+
+**Use Codex in a specific project directory:**
+
+```bash
+pty-go -codex -chdir ~/Projects/my-app -auto-exit "Implement the missing API handler"
 ```
 
 **Multi-word prompt:**

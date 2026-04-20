@@ -39,6 +39,8 @@ func main() {
 			}
 		case "-auto-exit":
 			autoExit = true
+		case "-codex":
+			agentName = "codex"
 		case "-opencode":
 			agentName = "opencode"
 		case "-claudecode", "-claude":
@@ -69,7 +71,7 @@ func main() {
 		chdir = abs
 	}
 
-	cmd := exec.Command(ag.Bin)
+	cmd := exec.Command(ag.Bin, ag.Args...)
 	cmd.Env = os.Environ()
 	if chdir != "" {
 		cmd.Dir = chdir

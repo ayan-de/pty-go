@@ -14,6 +14,7 @@ const doneMarker = "P0MX_DONE_SIGNAL"
 type Config struct {
 	Name            string
 	Bin             string
+	Args            []string
 	ReadyPattern    string
 	SendPrompt      func(ptmx *os.File, prompt string)
 	FormatPrompt    func(prompt string) string
@@ -27,6 +28,7 @@ func NewRegistry() map[string]*Config {
 	return map[string]*Config{
 		"opencode":   NewOpenCode(),
 		"claudecode": NewClaudeCode(),
+		"codex":      NewCodex(),
 	}
 }
 
