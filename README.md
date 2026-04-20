@@ -1,11 +1,19 @@
 # pty-go
 
-A Go CLI tool that launches coding agents (opencode, Claude Code, Codex) inside a pseudo-terminal (PTY) with support for auto-prompt injection and auto-exit on task completion.
+A Go CLI tool that launches coding agents inside a pseudo-terminal (PTY) with support for auto-prompt injection and auto-exit on task completion.
+
+## Supported Agents
+
+| Agent | Binary | Flag | Ready Pattern | Input Method |
+|-------|--------|------|---------------|-------------|
+| [opencode](https://github.com/anomalyco/opencode) | `opencode` | `-opencode` | `Ask anything` | Typed with Ctrl+U/W clearing |
+| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | `claude` | `-claudecode` / `-claude` | `Press Ctrl-C again to exit` | Single-line paste (no control chars) |
+| [Codex CLI](https://github.com/openai/codex) | `codex` | `-codex` | `›` | Single-line paste (no control chars) |
 
 ## Prerequisites
 
 - [Go](https://go.dev/dl/) 1.26+
-- An installed coding agent (`opencode`, `claude`, or `codex`)
+- At least one installed coding agent (see table above)
 
 ## Install
 
@@ -33,7 +41,7 @@ pty-go [flags] [prompt...]
 |------|-------------|
 | `-opencode` | Use opencode as the agent (default) |
 | `-claudecode` / `-claude` | Use Claude Code as the agent |
-| `-codex` | Use OpenAI Codex as the agent |
+| `-codex` | Use OpenAI Codex CLI as the agent |
 | `-chdir <path>` | Set the working directory for the agent |
 | `-auto-exit` | Automatically exit when the agent finishes the task |
 
@@ -57,7 +65,7 @@ pty-go -auto-exit "Explain the main function in main.go"
 pty-go -claudecode -chdir ~/Projects/my-app -auto-exit "Fix the lint errors"
 ```
 
-**Use Codex in a specific project directory:**
+**Use Codex CLI:**
 
 ```bash
 pty-go -codex -chdir ~/Projects/my-app -auto-exit "Implement the missing API handler"
