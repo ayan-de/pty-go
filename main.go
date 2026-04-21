@@ -45,6 +45,8 @@ func main() {
 			agentName = "opencode"
 		case "-claudecode", "-claude":
 			agentName = "claudecode"
+		case "-gemini":
+			agentName = "gemini"
 		default:
 			args = append(args, os.Args[i])
 		}

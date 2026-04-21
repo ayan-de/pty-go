@@ -29,6 +29,7 @@ func NewRegistry() map[string]*Config {
 		"opencode":   NewOpenCode(),
 		"claudecode": NewClaudeCode(),
 		"codex":      NewCodex(),
+		"gemini":     NewGeminiCode(),
 	}
 }
 

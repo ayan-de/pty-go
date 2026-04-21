@@ -8,6 +8,7 @@ A Go CLI tool that launches coding agents inside a pseudo-terminal (PTY) with su
 |-------|--------|------|---------------|-------------|
 | [opencode](https://github.com/anomalyco/opencode) | `opencode` | `-opencode` | `Ask anything` | Typed with Ctrl+U/W clearing |
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | `claude` | `-claudecode` / `-claude` | `Press Ctrl-C again to exit` | Single-line paste (no control chars) |
+| [Gemini CLI](https://geminicli.com) | `gemini` | `-gemini` | `Gemini CLI` | Single-line paste (no control chars) |
 | [Codex CLI](https://github.com/openai/codex) | `codex` | `-codex` | `›` | Single-line paste (no control chars) |
 
 ## Prerequisites
@@ -41,6 +42,7 @@ pty-go [flags] [prompt...]
 |------|-------------|
 | `-opencode` | Use opencode as the agent (default) |
 | `-claudecode` / `-claude` | Use Claude Code as the agent |
+| `-gemini` | Use Gemini CLI as the agent |
 | `-codex` | Use OpenAI Codex CLI as the agent |
 | `-chdir <path>` | Set the working directory for the agent |
 | `-auto-exit` | Automatically exit when the agent finishes the task |
@@ -63,6 +65,12 @@ pty-go -auto-exit "Explain the main function in main.go"
 
 ```bash
 pty-go -claudecode -chdir ~/Projects/my-app -auto-exit "Fix the lint errors"
+```
+
+**Use Gemini CLI:**
+
+```bash
+pty-go -gemini -auto-exit "Write a unit test for the Registry function"
 ```
 
 **Use Codex CLI:**
