@@ -29,6 +29,10 @@ func main() {
 	var chdir string
 	var autoExit bool
 	var agentName string
+	var allMode bool
+	var paneMode bool
+	var winMode bool
+	var sessionName string
 	var args []string
 	for i := 1; i < len(os.Args); i++ {
 		switch os.Args[i] {
@@ -39,6 +43,17 @@ func main() {
 			}
 		case "-auto-exit":
 			autoExit = true
+		case "-all":
+			allMode = true
+		case "-pane":
+			paneMode = true
+		case "-win":
+			winMode = true
+		case "-session":
+			i++
+			if i < len(os.Args) {
+				sessionName = os.Args[i]
+			}
 		case "-codex":
 			agentName = "codex"
 		case "-opencode":
@@ -50,6 +65,35 @@ func main() {
 		default:
 			args = append(args, os.Args[i])
 		}
+	}
+
+	if allMode {
+		if paneMode && winMode {
+			os.Stderr.WriteString("error: -pane and -win are mutually exclusive\n")
+			os.Exit(1)
+		}
+		if !paneMode && !winMode {
+			os.Stderr.WriteString("error: specify -pane or -win with -all\n")
+			os.Exit(1)
+		}
+		layout := "pane"
+		if winMode {
+			layout = "win"
+		}
+		prompt := JoinArgs(args)
+		multiCfg := &multiAgentConfig{
+			SessionName: sessionName,
+			Layout:      layout,
+			Agents:      []string{"opencode", "claudecode", "codex"},
+			Prompt:      prompt,
+			Chdir:       chdir,
+			AutoExit:    autoExit,
+		}
+		if err := runMultiAgent(multiCfg); err != nil {
+			os.Stderr.WriteString("error: " + err.Error() + "\n")
+			os.Exit(1)
+		}
+		return
 	}
 
 	if agentName == "" {

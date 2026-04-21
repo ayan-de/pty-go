@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-pty-go is a Go CLI tool that launches coding agents (opencode, Claude Code, Gemini CLI, Codex CLI) inside a pseudo-terminal (PTY). It supports auto-prompt injection and auto-exit on task completion. Single `package main`, no subpackages.
+pty-go is a Go CLI tool that launches coding agents (opencode, Claude Code, Gemini CLI, Codex CLI) inside a pseudo-terminal (PTY). It supports auto-prompt injection and auto-exit on task completion. Multi-agent mode spawns all agents inside a tmux session. Single `package main`, no subpackages.
 
 ## Build / Run / Test Commands
 
@@ -12,6 +12,10 @@ go build -o pty-go .
 
 # Run
 ./pty-go -opencode -auto-exit "your prompt here"
+
+# Run multi-agent (tmux)
+./pty-go -all -pane -session=mytask -auto-exit "your prompt here"
+./pty-go -all -win -session=mytask -auto-exit "your prompt here"
 
 # Run all tests (none exist yet, but use this when they do)
 go test ./...
@@ -39,6 +43,7 @@ There is no Makefile, no golangci-lint config, and no test files yet. Use `go ve
 - One file per agent config: `<agent>.go` (e.g., `claudecode.go`, `codex.go`, `opencode.go`, `geminicode.go`).
 - Shared types and helpers go in `agent.go`.
 - Entry point and main logic in `main.go`.
+- Multi-agent tmux orchestration goes in `tmux.go`.
 
 ### Imports
 

@@ -1,6 +1,6 @@
 # pty-go
 
-A Go CLI tool that launches coding agents inside a pseudo-terminal (PTY) with support for auto-prompt injection and auto-exit on task completion.
+A Go CLI tool that launches coding agents inside a pseudo-terminal (PTY) with support for auto-prompt injection and auto-exit on task completion. Supports multi-agent mode to run opencode, Claude Code, and Codex CLI simultaneously inside a tmux session.
 
 ## Supported Agents
 
@@ -15,6 +15,7 @@ A Go CLI tool that launches coding agents inside a pseudo-terminal (PTY) with su
 
 - [Go](https://go.dev/dl/) 1.26+
 - At least one installed coding agent (see table above)
+- [tmux](https://github.com/tmux/tmux) (required for multi-agent mode)
 
 ## Install
 
@@ -46,6 +47,10 @@ pty-go [flags] [prompt...]
 | `-codex` | Use OpenAI Codex CLI as the agent |
 | `-chdir <path>` | Set the working directory for the agent |
 | `-auto-exit` | Automatically exit when the agent finishes the task |
+| `-all` | Multi-agent mode — spawn opencode, Claude Code, and Codex CLI together |
+| `-pane` | Split into horizontal panes (use with `-all`) |
+| `-win` | Open each agent in a separate tmux window (use with `-all`) |
+| `-session <name>` | Set the tmux session name (required with `-all`) |
 
 ### Examples
 
@@ -85,12 +90,66 @@ pty-go -codex -chdir ~/Projects/my-app -auto-exit "Implement the missing API han
 pty-go -opencode -auto-exit Refactor the database layer to use connection pooling
 ```
 
+## Multi-Agent Mode
+
+Spawn multiple coding agents in a tmux session. Each agent receives the same prompt and works independently. When all agents finish, the tmux session closes.
+
+### Requirements
+
+- `tmux` must be installed
+
+### Usage
+
+```bash
+pty-go -all -pane -session=<name> [-auto-exit] [-chdir <path>] "your prompt"
+pty-go -all -win -session=<name> [-auto-exit] [-chdir <path>] "your prompt"
+```
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `-all` | Enable multi-agent mode (opencode, Claude Code, Codex CLI) |
+| `-pane` | Split agents into horizontal panes in one window |
+| `-win` | Open each agent in a separate tmux window |
+| `-session <name>` | Name for the tmux session (required) |
+
+`-pane` and `-win` are mutually exclusive. One must be specified with `-all`.
+
+### Examples
+
+**Three agents in horizontal panes:**
+
+```bash
+pty-go -all -pane -session=refactor -auto-exit "Refactor the database layer to use connection pooling"
+```
+
+**Three agents in separate tmux windows:**
+
+```bash
+pty-go -all -win -session=review -auto-exit -chdir ~/Projects/my-app "Review all recent changes"
+```
+
+**With a working directory:**
+
+```bash
+pty-go -all -pane -session=fix -auto-exit -chdir ~/Projects/api "Fix the lint errors in the handlers package"
+```
+
 ## How It Works
 
 1. Launches the agent binary inside a PTY
 2. Waits for the agent's ready indicator (e.g., `Ask anything` for opencode)
 3. Types the prompt into the PTY
 4. With `-auto-exit`, monitors output for a completion marker or idle patterns, then shuts down the agent
+
+### Multi-Agent Mode
+
+1. Creates a detached tmux session
+2. Spawns pty-go (in single-agent mode) inside each pane/window — one per agent
+3. Each inner process independently handles ready detection, prompt injection, and auto-exit
+4. Attaches to the tmux session so you can watch all agents work in real-time
+5. When agents finish, their panes/windows close; when all close, the session ends
 
 ## License
 
