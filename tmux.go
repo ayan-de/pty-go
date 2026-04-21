@@ -70,19 +70,22 @@ func runMultiAgent(cfg *multiAgentConfig) error {
 		return fmt.Errorf("failed to start %s: %w", cfg.Agents[0], err)
 	}
 
-	for i, agentName := range cfg.Agents[1:] {
+	for _, agentName := range cfg.Agents[1:] {
+		var target string
 		switch cfg.Layout {
 		case "pane":
 			if err := tmuxCmd("split-window", "-t", cfg.SessionName, "-h"); err != nil {
 				return fmt.Errorf("failed to split window: %w", err)
 			}
+			tmuxCmd("select-layout", "-t", cfg.SessionName, "even-horizontal")
+			target = cfg.SessionName
 		case "win":
 			if err := tmuxCmd("new-window", "-t", cfg.SessionName, "-n", agentName); err != nil {
 				return fmt.Errorf("failed to create window: %w", err)
 			}
+			target = cfg.SessionName
 		}
 
-		target := fmt.Sprintf("%s:%d", cfg.SessionName, i+1)
 		cmd := buildCommand(self, cfg, agentName)
 		if err := tmuxCmd("send-keys", "-t", target, cmd, "C-m"); err != nil {
 			return fmt.Errorf("failed to start %s: %w", agentName, err)
