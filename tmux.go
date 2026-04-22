@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"golang.org/x/term"
 )
 
 type multiAgentConfig struct {
@@ -56,7 +58,12 @@ func runMultiAgent(cfg *multiAgentConfig) error {
 		return fmt.Errorf("tmux session %q already exists", cfg.SessionName)
 	}
 
-	if err := tmuxCmd("new-session", "-d", "-s", cfg.SessionName, "-x", "220", "-y", "50"); err != nil {
+	width, height, err := term.GetSize(0)
+	if err != nil {
+		width, height = 220, 50
+	}
+
+	if err := tmuxCmd("new-session", "-d", "-s", cfg.SessionName, "-x", fmt.Sprintf("%d", width), "-y", fmt.Sprintf("%d", height)); err != nil {
 		return fmt.Errorf("failed to create tmux session: %w", err)
 	}
 
