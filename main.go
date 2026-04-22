@@ -2,12 +2,14 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -33,6 +35,8 @@ func main() {
 	var paneMode bool
 	var winMode bool
 	var sessionName string
+	var tmuxMode bool
+	var tmuxSessionName string
 	var args []string
 	for i := 1; i < len(os.Args); i++ {
 		switch os.Args[i] {
@@ -53,6 +57,12 @@ func main() {
 			i++
 			if i < len(os.Args) {
 				sessionName = os.Args[i]
+			}
+		case "-tmux":
+			tmuxMode = true
+			if i+1 < len(os.Args) && len(os.Args[i+1]) > 0 && os.Args[i+1][0] != '-' {
+				i++
+				tmuxSessionName = os.Args[i]
 			}
 		case "-codex":
 			agentName = "codex"
@@ -105,6 +115,61 @@ func main() {
 	if !ok {
 		os.Stderr.WriteString("unknown agent: " + agentName + "\n")
 		os.Exit(1)
+	}
+
+	if tmuxMode {
+		if _, err := exec.LookPath("tmux"); err != nil {
+			os.Stderr.WriteString("tmux is required for -tmux mode: " + err.Error() + "\n")
+			os.Exit(1)
+		}
+		sessionName := tmuxSessionName
+		if sessionName == "" {
+			sessionName = "pty-go-" + agentName
+		}
+		if tmuxHasSession(sessionName) {
+			os.Stderr.WriteString("tmux session " + sessionName + " already exists\n")
+			os.Exit(1)
+		}
+		width, height, err := term.GetSize(0)
+		if err != nil {
+			width, height = 220, 50
+		}
+		if err := tmuxCmd("new-session", "-d", "-s", sessionName, "-x", fmt.Sprintf("%d", width), "-y", fmt.Sprintf("%d", height)); err != nil {
+			os.Stderr.WriteString("failed to create tmux session: " + err.Error() + "\n")
+			os.Exit(1)
+		}
+		self, err := os.Executable()
+		if err != nil {
+			panic(err)
+		}
+		parts := []string{self, "-" + agentName}
+		if autoExit {
+			parts = append(parts, "-auto-exit")
+		}
+		if chdir != "" {
+			parts = append(parts, "-chdir", chdir)
+		}
+		parts = append(parts, args...)
+		var cmdStr string
+		for i, p := range parts {
+			if strings.Contains(p, " ") || strings.Contains(p, "\"") {
+				parts[i] = "'" + strings.ReplaceAll(p, "'", "'\\''") + "'"
+			}
+		}
+		cmdStr = strings.Join(parts, " ")
+		if err := tmuxCmd("send-keys", "-t", sessionName, cmdStr, "C-m"); err != nil {
+			os.Stderr.WriteString("failed to start " + agentName + ": " + err.Error() + "\n")
+			os.Exit(1)
+		}
+		attachCmd := exec.Command("tmux", "attach", "-t", sessionName)
+		attachCmd.Stdin = os.Stdin
+		attachCmd.Stdout = os.Stdout
+		attachCmd.Stderr = os.Stderr
+		if err := attachCmd.Run(); err != nil {
+			os.Stderr.WriteString("tmux attach failed: " + err.Error() + "\n")
+			os.Exit(1)
+		}
+		return
 	}
 
 	prompt := JoinArgs(args)

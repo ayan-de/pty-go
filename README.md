@@ -51,6 +51,7 @@ pty-go [flags] [prompt...]
 | `-pane` | Split into horizontal panes (use with `-all`) |
 | `-win` | Open each agent in a separate tmux window (use with `-all`) |
 | `-session <name>` | Set the tmux session name (required with `-all`) |
+| `-tmux [name]` | Spawn agent inside a tmux session (optional custom name) |
 
 ### Examples
 
@@ -88,6 +89,36 @@ pty-go -codex -chdir ~/Projects/my-app -auto-exit "Implement the missing API han
 
 ```bash
 pty-go -opencode -auto-exit Refactor the database layer to use connection pooling
+```
+
+**Spawn in tmux session:**
+
+```bash
+pty-go -tmux -opencode -auto-exit "Your prompt here"
+```
+
+## Tmux Mode
+
+Spawn a single agent inside a dedicated tmux session.
+
+```bash
+pty-go -tmux [name] [-opencode|-claudecode|-gemini|-codex] [flags] "prompt"
+```
+
+If `name` is omitted, the session is named `pty-go-<agent>`.
+
+### Examples
+
+**opencode in tmux:**
+
+```bash
+pty-go -tmux -opencode -auto-exit "Implement a new feature"
+```
+
+**Claude Code in tmux with custom session name:**
+
+```bash
+pty-go -tmux mysession -claudecode -auto-exit "Review and refactor the auth module"
 ```
 
 ## Multi-Agent Mode
