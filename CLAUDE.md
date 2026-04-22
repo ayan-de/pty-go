@@ -56,8 +56,8 @@ Key state transition mechanics:
 
 ### Prompt Sending Methods
 
-- `SendPromptTyped`: Sends Ctrl+U/Ctrl+W to clear input, types char-by-char, sends Enter. For agents with full readline (opencode, codex).
-- `SendPromptSingleLine`: Collapses newlines to spaces, sends as single line. For agents with limited input handling (claude-code).
+- `SendPromptTyped`: Sends Ctrl+U/Ctrl+W to clear input, types char-by-char, sends Enter. For agents with full readline (opencode).
+- `SendPromptSingleLine`: Collapses newlines to spaces, sends as single line. For agents with limited input handling (claude-code, gemini, codex).
 
 ### PTY Handling
 
