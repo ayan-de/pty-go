@@ -260,7 +260,7 @@ func main() {
 				completionStarted = true
 			}
 			if outputBuf.Len() > 16384 {
-				outputBuf.Next(outputBuf.Len() - 8192)
+				outputBuf.Next(outputBuf.Len() - 16384)
 			}
 			recent := StripANSI(outputBuf.String())
 
